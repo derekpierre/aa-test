@@ -1,7 +1,7 @@
 /**
  * ERC-1271 × Alchemy Light Account × Pimlico Bundler
  * ─────────────────────────────────────────────────────
- * Tests ERC-7562 compliance against EntryPoint v0.7.
+ * Tests ERC-7562 compliance against EntryPoint.
  *
  * The Light Account owner is set to your ERC-1271 contract.
  * On validation, the EntryPoint calls:
@@ -38,12 +38,13 @@ import { createSmartAccountClient } from "permissionless";
 import { toLightSmartAccount } from "permissionless/accounts";
 import { createPimlicoClient } from "permissionless/clients/pimlico";
 
-// ─── EntryPoint v0.7 address ──────────────────────────────────────────────────
+// ─── EntryPoint address ──────────────────────────────────────────────────
 // Verify this against:
 //   https://github.com/eth-infinitism/account-abstraction/releases
 // before using on a live network.
-const ENTRY_POINT_V07_ADDRESS: Address =
+const ENTRY_POINT_ADDRESS: Address =
   "0x0000000071727De22E5E9d8BAf0edAc6f37da032";
+const ENTRY_POINT_VERSION = "0.7";
 
 // ─── Config from env ──────────────────────────────────────────────────────────
 function requireEnv(key: string): string {
@@ -107,10 +108,10 @@ async function main(): Promise<void> {
   const chain = resolveChain(CHAIN_NAME);
 
   console.log("\n══════════════════════════════════════════════════");
-  console.log("  ERC-1271 × Light Account × Pimlico — EP v0.7");
+  console.log(`  ERC-1271 × Light Account × Pimlico — EP v${ENTRY_POINT_VERSION}`);
   console.log("══════════════════════════════════════════════════");
   console.log(`  Chain      : ${chain.name} (id ${chain.id})`);
-  console.log(`  EntryPoint : ${ENTRY_POINT_V07_ADDRESS}`);
+  console.log(`  EntryPoint : ${ENTRY_POINT_ADDRESS}`);
   console.log(`  Validator  : ${ERC1271_ADDRESS}`);
   console.log(`  Bundler    : ${pimlicoBundlerUrl(chain)}`);
   console.log("══════════════════════════════════════════════════\n");
@@ -135,8 +136,8 @@ async function main(): Promise<void> {
   const bundlerClient = createPimlicoClient({
     transport: http(pimlicoBundlerUrl(chain)),
     entryPoint: {
-      address: ENTRY_POINT_V07_ADDRESS,
-      version: "0.7",
+      address: ENTRY_POINT_ADDRESS,
+      version: ENTRY_POINT_VERSION,
     },
   });
 
@@ -214,8 +215,8 @@ async function main(): Promise<void> {
     owner: erc1271Signer as LocalAccount,
     version: "2.0.0",
     entryPoint: {
-      address: ENTRY_POINT_V07_ADDRESS,
-      version: "0.7",
+      address: ENTRY_POINT_ADDRESS,
+      version: ENTRY_POINT_VERSION,
     },
   });
 
