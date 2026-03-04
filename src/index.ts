@@ -50,7 +50,7 @@ function requireEnv(key: string): string {
 }
 
 const CHAIN_NAME            = (process.env.CHAIN ?? "sepolia").toLowerCase();
-const ALCHEMY_RPC_URL       = requireEnv("ALCHEMY_RPC_URL");
+const RPC_URL               = requireEnv("RPC_URL");
 const ERC1271_ADDRESS       = getAddress(requireEnv("ERC1271_CONTRACT_ADDRESS"));
 const SIGNER1_PK            = requireEnv("SIGNER1_PRIVATE_KEY").startsWith("0x") ? requireEnv("SIGNER1_PRIVATE_KEY") as Hex : `0x${requireEnv("SIGNER1_PRIVATE_KEY")}` as Hex;
 const SIGNER2_PK            = requireEnv("SIGNER2_PRIVATE_KEY").startsWith("0x") ? requireEnv("SIGNER2_PRIVATE_KEY") as Hex : `0x${requireEnv("SIGNER2_PRIVATE_KEY")}` as Hex;
@@ -126,7 +126,7 @@ async function main(): Promise<void> {
   // ── 2. Public + bundler clients ───────────────────────────────────────────
   const publicClient = createPublicClient({
     chain,
-    transport: http(ALCHEMY_RPC_URL),
+    transport: http(RPC_URL),
   });
 
   const bundlerClient = createPimlicoClient({
