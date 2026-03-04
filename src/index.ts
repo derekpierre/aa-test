@@ -26,10 +26,6 @@ import {
   getAddress,
   hashTypedData,
   zeroAddress,
-  fromHex,
-  hexToBytes,
-  toHex,
-  bytesToHex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia, mainnet, holesky } from "viem/chains";
