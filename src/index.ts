@@ -219,6 +219,23 @@ async function main(): Promise<void> {
     },
   });
 
+  // ── Fix: Override signature type byte ──────────────────────────────────────
+  //
+  //  permissionless.js prepends 0x00 (SignatureType.EOA) for Light Account v2.
+  //  But our owner IS a contract (ERC-1271), so the Light Account needs 0x01
+  //  (SignatureType.CONTRACT) to route to isValidSignature() instead of ecrecover.
+  //
+  //  Light Account v2 signature format:
+  //    0x00 + sig  →  EOA:      ecrecover(userOpHash, sig) == owner()
+  //    0x01 + sig  →  CONTRACT: owner().isValidSignature(userOpHash, sig)
+  //
+  const originalSignUserOp = lightAccount.signUserOperation.bind(lightAccount);
+  lightAccount.signUserOperation = async (params) => {
+    const sig = await originalSignUserOp(params);
+    // Replace 0x00 (EOA) with 0x01 (CONTRACT)
+    return `0x01${sig.slice(4)}` as Hex;
+  };
+
   const saAddress = lightAccount.address;
   console.log(`📬  Smart Account : ${saAddress}`);
 
