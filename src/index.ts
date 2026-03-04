@@ -54,7 +54,6 @@ function requireEnv(key: string): string {
 
 const CHAIN_NAME            = (process.env.CHAIN ?? "sepolia").toLowerCase();
 const ALCHEMY_RPC_URL       = requireEnv("ALCHEMY_RPC_URL");
-const PIMLICO_API_KEY       = requireEnv("PIMLICO_API_KEY");
 const ERC1271_ADDRESS       = getAddress(requireEnv("ERC1271_CONTRACT_ADDRESS"));
 const SIGNER1_PK            = requireEnv("SIGNER1_PRIVATE_KEY").startsWith("0x") ? requireEnv("SIGNER1_PRIVATE_KEY") as Hex : `0x${requireEnv("SIGNER1_PRIVATE_KEY")}` as Hex;
 const SIGNER2_PK            = requireEnv("SIGNER2_PRIVATE_KEY").startsWith("0x") ? requireEnv("SIGNER2_PRIVATE_KEY") as Hex : `0x${requireEnv("SIGNER2_PRIVATE_KEY")}` as Hex;
@@ -69,7 +68,7 @@ function resolveChain(name: string): Chain {
 }
 
 function pimlicoBundlerUrl(chain: Chain): string {
-  return `https://api.pimlico.io/v2/${chain.name.toLowerCase()}/rpc?apikey=${PIMLICO_API_KEY}`;
+  return `https://public.pimlico.io/v2/${chain.id}/rpc`;
 }
 
 // ─── Multi-sig signature encoder ─────────────────────────────────────────────
@@ -113,6 +112,7 @@ async function main(): Promise<void> {
   console.log(`  Chain      : ${chain.name} (id ${chain.id})`);
   console.log(`  EntryPoint : ${ENTRY_POINT_V07_ADDRESS}`);
   console.log(`  Validator  : ${ERC1271_ADDRESS}`);
+  console.log(`  Bundler    : ${pimlicoBundlerUrl(chain)}`);
   console.log("══════════════════════════════════════════════════\n");
 
   // ── 1. Three deterministic signers from private keys ─────────────────────
@@ -282,6 +282,7 @@ async function main(): Promise<void> {
     userOpHash = await smartAccountClient.sendUserOperation({
       account: lightAccount,
       calls: [{ to: TARGET_ADDRESS, value: CALL_VALUE, data: CALL_DATA }],
+      verificationGasLimit: 200_000n, // validation logic is complex (ERC-1271 multisig)
     });
     console.log(`    Hash : ${userOpHash}`);
   } catch (err) {
