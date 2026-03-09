@@ -26,6 +26,8 @@ import {
   getAddress,
   hashTypedData,
   zeroAddress,
+  createClient,
+  defineChain,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia, mainnet, holesky } from "viem/chains";
@@ -33,6 +35,7 @@ import type { Chain, LocalAccount } from "viem";
 import { createSmartAccountClient } from "permissionless";
 import { toLightSmartAccount } from "permissionless/accounts";
 import { createPimlicoClient } from "permissionless/clients/pimlico";
+import { bundlerActions, createBundlerClient } from "viem/account-abstraction";
 
 // ─── EntryPoint address ──────────────────────────────────────────────────
 // Verify this against:
@@ -51,21 +54,31 @@ function requireEnv(key: string): string {
 
 const CHAIN_NAME            = (process.env.CHAIN ?? "sepolia").toLowerCase();
 const RPC_URL               = requireEnv("RPC_URL");
+const BUNDLER_URL           = requireEnv("BUNDLER_URL");
 const ERC1271_ADDRESS       = getAddress(requireEnv("ERC1271_CONTRACT_ADDRESS"));
 const SIGNER1_PK            = requireEnv("SIGNER1_PRIVATE_KEY").startsWith("0x") ? requireEnv("SIGNER1_PRIVATE_KEY") as Hex : `0x${requireEnv("SIGNER1_PRIVATE_KEY")}` as Hex;
 const SIGNER2_PK            = requireEnv("SIGNER2_PRIVATE_KEY").startsWith("0x") ? requireEnv("SIGNER2_PRIVATE_KEY") as Hex : `0x${requireEnv("SIGNER2_PRIVATE_KEY")}` as Hex;
 const SIGNER3_PK            = requireEnv("SIGNER3_PRIVATE_KEY").startsWith("0x") ? requireEnv("SIGNER3_PRIVATE_KEY") as Hex : `0x${requireEnv("SIGNER3_PRIVATE_KEY")}` as Hex;
 const USE_PAYMASTER         = process.env.USE_PAYMASTER === "true";
 
+// Define the Geth Localnet chain
+export const gethlocalnet = defineChain({
+  id: 1337,
+  name: 'gethlocalnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: ['http://127.0.0.1:8545'],
+    },
+  },
+})
+
+
 function resolveChain(name: string): Chain {
-  const map: Record<string, Chain> = { sepolia, mainnet, holesky };
+  const map: Record<string, Chain> = { sepolia, mainnet, holesky, gethlocalnet };
   const chain = map[name];
   if (!chain) throw new Error(`Unsupported CHAIN="${name}".`);
   return chain;
-}
-
-function pimlicoBundlerUrl(chain: Chain): string {
-  return `https://public.pimlico.io/v2/${chain.id}/rpc`;
 }
 
 // ─── Multi-sig signature encoder ─────────────────────────────────────────────
@@ -109,7 +122,7 @@ async function main(): Promise<void> {
   console.log(`  Chain      : ${chain.name} (id ${chain.id})`);
   console.log(`  EntryPoint : ${ENTRY_POINT_ADDRESS}`);
   console.log(`  Validator  : ${ERC1271_ADDRESS}`);
-  console.log(`  Bundler    : ${pimlicoBundlerUrl(chain)}`);
+  console.log(`  Bundler    : ${BUNDLER_URL}`);
   console.log("══════════════════════════════════════════════════\n");
 
   // ── 1. Three deterministic signers from private keys ─────────────────────
@@ -129,12 +142,9 @@ async function main(): Promise<void> {
     transport: http(RPC_URL),
   });
 
-  const bundlerClient = createPimlicoClient({
-    transport: http(pimlicoBundlerUrl(chain)),
-    entryPoint: {
-      address: ENTRY_POINT_ADDRESS,
-      version: ENTRY_POINT_VERSION,
-    },
+  const bundlerClient = createBundlerClient({
+    chain: chain,
+    transport: http(BUNDLER_URL),
   });
 
   // ── 3. ERC-1271 composite signer ─────────────────────────────────────────
@@ -214,6 +224,8 @@ async function main(): Promise<void> {
       address: ENTRY_POINT_ADDRESS,
       version: ENTRY_POINT_VERSION,
     },
+    // Was needed for local geth testing with non-standard CREATE2 implementation, but should NOT be needed for compliant chains like Sepolia or Mainnet.  Remove if your chain is compliant.
+    // factoryAddress: '0xC5A1A6F56F0d5a3bAD542Fee660C8fedD7009772'
   });
 
   // ── Fix: Override signature type byte ──────────────────────────────────────
@@ -249,13 +261,7 @@ async function main(): Promise<void> {
   // ── 5. Smart Account client ───────────────────────────────────────────────
   const smartAccountClient = createSmartAccountClient({
     account: lightAccount,
-    bundlerTransport: http(pimlicoBundlerUrl(chain)),
-    // Uncomment to add Pimlico paymaster sponsorship:
-    // paymaster: createPaymasterClient({ transport: http(pimlicoBundlerUrl(chain)) }),
-    userOperation: {
-      estimateFeesPerGas: async () =>
-        (await bundlerClient.getUserOperationGasPrice()).fast,
-    },
+    bundlerTransport: http(BUNDLER_URL),
   });
 
   // ── 6. Define the call  ──────────────────────────────────────────────────
@@ -279,7 +285,11 @@ async function main(): Promise<void> {
     userOpHash = await smartAccountClient.sendUserOperation({
       account: lightAccount,
       calls: [{ to: TARGET_ADDRESS, value: CALL_VALUE, data: CALL_DATA }],
-      verificationGasLimit: 200_000n, // validation logic is complex (ERC-1271 multisig)
+      // Adjust values as needed
+      verificationGasLimit: 500_000n,
+      preVerificationGas: 50_000n,
+      maxPriorityFeePerGas: 2_000_000_000n,
+      maxFeePerGas: 5_000_000_000n,
     });
     console.log(`    Hash : ${userOpHash}`);
   } catch (err) {
